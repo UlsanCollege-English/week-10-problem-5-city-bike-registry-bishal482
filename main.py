@@ -1,49 +1,88 @@
-"""
-HW05 — City Bike Registry (Resizing Chaining Map)
-"""
+EMPTY = object()
+DELETED = object()
 
 class HashMap:
-    """Chaining hash map with auto-resize at load factor > 0.75."""
+    def __init__(self, m=8):
+        """Initialize hash map with initial table size m."""
+        self.table = [EMPTY] * m
+        self.count = 0
 
-    def __init__(self, m=4):
-        # TODO: create m empty buckets and set size counter
-        raise NotImplementedError
+    def _hash(self, key):
+        return hash(key) % len(self.table)
 
-    def _hash(self, s):
-        """Return simple integer hash for string s."""
-        # TODO: sum character ordinals or similar
-        raise NotImplementedError
-
-    def _index(self, key, m=None):
-        """Return bucket index for key with current or given bucket count."""
-        # TODO
-        raise NotImplementedError
-
-    def __len__(self):
-        """Return number of stored pairs."""
-        # TODO
-        raise NotImplementedError
-
-    def _resize(self, new_m):
-        """Resize to new_m buckets and rehash all pairs."""
-        # TODO: allocate new buckets; reinsert all pairs
-        raise NotImplementedError
+    def _resize(self):
+        """Double the table size and reinsert all active key-value pairs."""
+        old_table = self.table
+        new_size = len(old_table) * 2
+        self.table = [EMPTY] * new_size
+        self.count = 0
+        for entry in old_table:
+            if entry is not EMPTY and entry is not DELETED:
+                k, v = entry
+                self.put(k, v)
 
     def put(self, key, value):
-        """Insert or overwrite. Resize first if load will exceed 0.75."""
-        # TODO: check load; maybe resize; then insert/overwrite
-        raise NotImplementedError
+        if self.count / len(self.table) >= 0.7:
+            self._resize()
+
+        index = self._hash(key)
+        first_deleted = None
+
+        for i in range(len(self.table)):
+            probe = (index + i) % len(self.table)
+            slot = self.table[probe]
+
+            if slot is EMPTY:
+                if first_deleted is not None:
+                    self.table[first_deleted] = (key, value)
+                else:
+                    self.table[probe] = (key, value)
+                self.count += 1
+                return
+
+            elif slot is DELETED:
+                if first_deleted is None:
+                    first_deleted = probe
+
+            elif slot[0] == key:
+                # Overwrite existing key
+                self.table[probe] = (key, value)
+                return
+
+        # If we found a deleted slot earlier
+        if first_deleted is not None:
+            self.table[first_deleted] = (key, value)
+            self.count += 1
 
     def get(self, key):
-        """Return value for key or None if missing."""
-        # TODO
-        raise NotImplementedError
+        index = self._hash(key)
+        for i in range(len(self.table)):
+            probe = (index + i) % len(self.table)
+            slot = self.table[probe]
+
+            if slot is EMPTY:
+                return None
+            elif slot is DELETED:
+                continue
+            elif slot[0] == key:
+                return slot[1]
+        return None
 
     def delete(self, key):
-        """Remove key if present. Return True if removed else False."""
-        # TODO
-        raise NotImplementedError
+        index = self._hash(key)
+        for i in range(len(self.table)):
+            probe = (index + i) % len(self.table)
+            slot = self.table[probe]
 
-if __name__ == "__main__":
-    # Optional manual check
-    pass
+            if slot is EMPTY:
+                return False
+            elif slot is DELETED:
+                continue
+            elif slot[0] == key:
+                self.table[probe] = DELETED
+                self.count -= 1
+                return True
+        return False
+
+    def __len__(self):
+        return self.count
